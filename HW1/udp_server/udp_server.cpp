@@ -68,6 +68,7 @@ int main(int argc, char const *argv[])
 
     std::cout << "Running echo server...\n" << std::endl;
     char client_address_buf[INET_ADDRSTRLEN];
+    char client_name_buf[NI_MAXHOST];
 
     while (!exit)
     {
@@ -75,12 +76,19 @@ int main(int argc, char const *argv[])
         recv_len = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
                             reinterpret_cast<sockaddr *>(&client_address),
                             &client_address_len);
-
+        
+        // getting hostname from address
+        getnameinfo(reinterpret_cast<sockaddr *>(&client_address), 
+                    client_address_len, client_name_buf, sizeof(client_name_buf), 
+                    nullptr, 0, NI_NAMEREQD);  
+     
         if (recv_len > 0)
         {
             buffer[recv_len] = '\0';
             std::cout
-                << "Client with address "
+                << "Client "
+                << client_name_buf
+                << " with address "
                 << inet_ntop(AF_INET, &client_address.sin_addr, client_address_buf, sizeof(client_address_buf) / sizeof(client_address_buf[0]))
                 << ":" << ntohs(client_address.sin_port)
                 << " sent datagram "
