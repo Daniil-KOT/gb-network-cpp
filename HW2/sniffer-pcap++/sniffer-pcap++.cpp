@@ -4,6 +4,11 @@
 #include <cctype>
 #include <cerrno>
 
+#include "Packet.h"
+#include "EthLayer.h"
+#include "IPv4Layer.h"
+#include "TcpLayer.h"
+#include "HttpLayer.h"
 #include "PcapFileDevice.h"
 #include "PcapLiveDeviceList.h"
 #include "PcapFilter.h"
@@ -13,6 +18,52 @@
 // Default snap length (maximum bytes per packet to capture).
 const auto SNAP_LEN = 1518;
 const auto MAX_PACKET_TO_CAPTURE = 10;
+
+std::string getProtocolTypeAsString(pcpp::ProtocolType protocolType)
+{
+    switch (protocolType)
+    {
+    case pcpp::Ethernet:
+        return "Ethernet";
+    case pcpp::IPv4:
+        return "IPv4";
+    case pcpp::TCP:
+        return "TCP";
+    case pcpp::ICMP:
+        return "ICMP";
+    case pcpp::HTTPRequest:
+    case pcpp::HTTPResponse:
+        return "HTTP";
+    default:
+        return "Unknown";
+    }
+}
+
+void packetInfo(pcpp::Packet& parsedPacket, int packetNum)
+{
+    pcpp::Layer* layer = parsedPacket.getFirstLayer();
+
+    for (; layer != nullptr; layer = layer->getNextLayer())
+    {
+        std::cout
+            << "Packet " << packetNum << ":\n"
+            << "\tLayer type: " << getProtocolTypeAsString(layer->getProtocol()) << ";\n"
+            << "\tTotal data: " << layer->getDataLen() << " bytes;\n"
+            << "\tLayer data: " << layer->getHeaderLen() << " bytes;\n"
+            << "\tLayer payload: " << layer->getLayerPayloadSize() << " bytes;\n";
+        
+        if (layer->getProtocol() == pcpp::IPv4)
+        {
+            pcpp::IPv4Layer* ipLayer = (pcpp::IPv4Layer*)layer;
+            std::cout
+                << "\tReceived from: " << ipLayer->getSrcIpAddress() << ";\n"
+                << "\tSent to: " << ipLayer->getDstIpAddress() << ";\n"
+                << "\tTTL: " << (int)ipLayer->getIPv4Header()->timeToLive << ";\n";
+        }
+
+        std::cout << std::endl;
+    }
+}
 
 int main(int argc, const char * const argv[])
 {
@@ -99,7 +150,18 @@ int main(int argc, const char * const argv[])
 
     pcapWriter.close();
 
-    std::cout << "Capture complete." << std::endl;
+    pcpp::Packet parsedPacket;
+    int packetNumber = 1;
+
+    // printing packets information
+    for (auto it = packets.begin(); it != packets.end(); ++it)
+    {
+        parsedPacket.setRawPacket(*it, false);
+        packetInfo(parsedPacket, packetNumber);
+        ++packetNumber;
+    }
+
+    std::cout << "Capture complete.\n";
 
     return EXIT_SUCCESS;
 }
