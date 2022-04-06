@@ -56,8 +56,8 @@ void packetInfo(pcpp::Packet& parsedPacket, int packetNum)
         {
             pcpp::IPv4Layer* ipLayer = (pcpp::IPv4Layer*)layer;
             std::cout
-                << "\tReceived from: " << ipLayer->getSrcIpAddress() << ";\n"
-                << "\tSent to: " << ipLayer->getDstIpAddress() << ";\n"
+                << "\tReceived from: " << ipLayer->getSrcIPAddress() << ";\n"
+                << "\tSent to: " << ipLayer->getDstIPAddress() << ";\n"
                 << "\tTTL: " << (int)ipLayer->getIPv4Header()->timeToLive << ";\n";
         }
 
