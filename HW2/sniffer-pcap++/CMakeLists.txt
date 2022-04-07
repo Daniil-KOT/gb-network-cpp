@@ -15,4 +15,4 @@ add_executable("${PROJECT_NAME}" "${${PROJECT_NAME}_SRC}")
 
 target_include_directories("${PROJECT_NAME}" SYSTEM PRIVATE "/usr/local/include/pcapplusplus")
 
-target_link_libraries("${PROJECT_NAME}" socket-wrapper libCommon++.a libPacket++.a libPcap++.a pcap::pcap libpthread.a)
+target_link_libraries("${PROJECT_NAME}" socket-wrapper libCommon++.a libPacket++.a libPcap++.a pcap::pcap libpthread.so)
