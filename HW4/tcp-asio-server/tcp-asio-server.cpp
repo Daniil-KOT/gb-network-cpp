@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-
 #if !defined(_WIN32)
 extern "C"
 {
@@ -93,16 +92,35 @@ private:
         return std::move(tmp);
     }
 
-    void send_file(std::vector<char>& content, const std::string& message)
+    void send_file(std::vector<char>& content, int& offset)
     {
-        std::string response = "Sending file: " + message;
         socket_.async_write_some(
-            boost::asio::buffer(content),
-            boost::bind(&TcpConnection::handle_write,
+            boost::asio::buffer(&content[offset], chunk),
+            boost::bind(&TcpConnection::handle_send_file,
                         shared_from_this(),
-                        response,
+                        content,
+                        offset,
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
+    }
+
+    void handle_send_file(std::vector<char>& content,
+                          int&               offset,
+                          const boost::system::error_code&,
+                          size_t bytes_transferred)
+    {
+        if (offset + bytes_transferred < content.size())
+        {
+            std::cout << "Sending file...\n";
+            offset += bytes_transferred;
+            send_file(content, offset);
+        }
+        else
+        {
+            std::cout << "File was successfully sent!\n\n";
+            offset = 0;
+            read();
+        }
     }
 
     void read()
@@ -118,10 +136,11 @@ private:
     void write(std::string& message)
     {
         auto content = read_file_bytes(get_filename(message));
+        int  offset  = 0;
 
         if (content.size() > 0)
         {
-            send_file(content, message);
+            send_file(content, offset);
         }
         else
         {
@@ -161,9 +180,10 @@ private:
     }
 
 private:
-    tcp::socket socket_;
-    char        message_[4096];
-    char        response_buf_[4096];
+    tcp::socket  socket_;
+    const size_t chunk = 4096;
+    char         message_[4096];
+    char         response_buf_[4096];
 };
 
 class TcpServer
