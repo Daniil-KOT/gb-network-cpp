@@ -1,12 +1,34 @@
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <boost/enable_shared_from_this.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/thread.hpp>
+#include <cerrno>
+#include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
+
+#if !defined(_WIN32)
+extern "C"
+{
+#include <signal.h>
+}
+#else
+#include <cwctype>
+#endif
+
+namespace fs = std::filesystem;
 using boost::asio::ip::tcp;
+
+#if defined(_WIN32)
+const wchar_t separ = fs::path::preferred_separator;
+#endif
 
 class TcpConnection : public std::enable_shared_from_this<TcpConnection>
 {
@@ -28,31 +50,100 @@ private:
     {
     }
 
+    fs::path get_filename(const std::string& message)
+    {
+        auto cur_path  = fs::current_path().wstring();
+        auto file_path = fs::weakly_canonical(message).wstring();
+
+#if defined(_WIN32)
+        std::transform(cur_path.begin(),
+                       cur_path.end(),
+                       cur_path.begin(),
+                       [](wchar_t c) { return std::towlower(c); });
+        std::transform(file_path.begin(),
+                       file_path.end(),
+                       file_path.begin(),
+                       [](wchar_t c) { return std::towlower(c); });
+#endif
+
+        if (file_path.find(cur_path) == 0)
+        {
+            file_path = file_path.substr(cur_path.length());
+        }
+
+        return fs::weakly_canonical(cur_path + separ + file_path);
+    }
+
+    std::vector<char> read_file_bytes(const fs::path& file_path)
+    {
+        std::ifstream     file(file_path, std::ifstream::binary);
+        std::vector<char> tmp(0);
+        if (file)
+        {
+            file.seekg(0, std::ios::end);
+            size_t len = file.tellg();
+            tmp.resize(len);
+            file.seekg(0, std::ios::beg);
+
+            if (len)
+            {
+                file.read(&tmp[0], len);
+            }
+        }
+        return std::move(tmp);
+    }
+
+    void send_file(std::vector<char>& content, const std::string& message)
+    {
+        std::string response = "Sending file: " + message;
+        socket_.async_write_some(
+            boost::asio::buffer(content),
+            boost::bind(&TcpConnection::handle_write,
+                        shared_from_this(),
+                        response,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
+
     void read()
     {
         socket_.async_read_some(
-            boost::asio::buffer(message_, 1024),
+            boost::asio::buffer(message_, 4096),
             boost::bind(&TcpConnection::handle_read,
                         shared_from_this(),
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     }
 
-    void write(std::string message)
+    void write(std::string& message)
     {
-        std::copy(message.begin(), message.end(), response_buf_);
-        socket_.async_write_some(
-            boost::asio::buffer(response_buf_, message.size()),
-            boost::bind(&TcpConnection::handle_write,
-                        shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+        auto content = read_file_bytes(get_filename(message));
+
+        if (content.size() > 0)
+        {
+            send_file(content, message);
+        }
+        else
+        {
+            message += "\nFile not found!";
+
+            socket_.async_write_some(
+                boost::asio::buffer(message),
+                boost::bind(&TcpConnection::handle_write,
+                            shared_from_this(),
+                            message,
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
+        }
     }
 
-    void handle_write(const boost::system::error_code&,
+    void handle_write(std::string& content,
+                      const boost::system::error_code&,
                       size_t bytes_transferred)
     {
-        std::cout << "Bytes transferred: " << bytes_transferred << std::endl;
+        std::cout << "Bytes transferred: " << bytes_transferred
+                  << "\nContent: " << content
+                  << "\nUser: " << boost::this_thread::get_id() << "\n\n";
         read();
     }
 
@@ -61,7 +152,7 @@ private:
         if (!error)
         {
             std::string response(message_, bytes_read);
-            write(response + "\n");
+            write(response);
         }
         else
         {
@@ -71,8 +162,8 @@ private:
 
 private:
     tcp::socket socket_;
-    char        message_[1024];
-    char        response_buf_[1024];
+    char        message_[4096];
+    char        response_buf_[4096];
 };
 
 class TcpServer
@@ -91,10 +182,11 @@ private:
         TcpConnection::pointer new_connection =
             TcpConnection::create(io_context_);
 
-        acceptor_.async_accept(
-            new_connection->socket(),
-            [this, new_connection](const boost::system::error_code& error)
-            { this->handle_accept(new_connection, error); });
+        acceptor_.async_accept(new_connection->socket(),
+                               boost::bind(&TcpServer::handle_accept,
+                                           this,
+                                           new_connection,
+                                           boost::asio::placeholders::error));
     }
 
     void handle_accept(TcpConnection::pointer           new_connection,
@@ -112,17 +204,38 @@ private:
     tcp::acceptor            acceptor_;
 };
 
+void start_listen(int                      thread_count,
+                  boost::thread_group&     clients,
+                  boost::asio::io_context& io_context)
+{
+    for (int i = 0; i < thread_count; ++i)
+    {
+        clients.create_thread([&io_context]() { io_context.run(); });
+    }
+}
+
 int main(int argc, const char* argv[])
 {
+    if (argc != 2)
+    {
+        std::cout << "Usage: " << argv[0] << " <port>" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     try
     {
+        boost::thread_group     clients;
         boost::asio::io_context io_context;
         TcpServer               server(io_context, std::stoi(argv[1]));
 
-        io_context.run();
+        start_listen(5, clients, io_context);
+        clients.join_all();
     }
     catch (const std::exception& e)
     {
         std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
+
+    return EXIT_SUCCESS;
 }
