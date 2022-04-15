@@ -95,7 +95,7 @@ private:
     void send_file(std::vector<char>& content, int& offset)
     {
         socket_.async_write_some(
-            boost::asio::buffer(&content[offset], chunk),
+            boost::asio::buffer(content.data() + offset, chunk_ - 1),
             boost::bind(&TcpConnection::handle_send_file,
                         shared_from_this(),
                         content,
@@ -111,13 +111,29 @@ private:
     {
         if (offset + bytes_transferred < content.size())
         {
-            std::cout << "Sending file...\n";
-            offset += bytes_transferred;
+            std::cout << "Sending file...\n"
+                      << "Bytes transferred:\t"
+                      << bytes_transferred 
+                      << std:: endl;
+
+            if (chunk_ > content.size() - offset)
+            {
+                chunk_ = content.size() - offset;
+                std::cout << "\nChanging chunk size to:\t"
+                          << chunk_ 
+                          << "\nContinue sending...\n";
+            }
+            else
+            {
+                offset += bytes_transferred;
+            }
+
             send_file(content, offset);
         }
         else
         {
             std::cout << "File was successfully sent!\n\n";
+            chunk_ = 4096;
             offset = 0;
             read();
         }
@@ -181,7 +197,7 @@ private:
 
 private:
     tcp::socket  socket_;
-    const size_t chunk = 4096;
+    size_t chunk_ = 4096;
     char         message_[4096];
     char         response_buf_[4096];
 };
