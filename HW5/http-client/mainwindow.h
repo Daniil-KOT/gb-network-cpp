@@ -1,10 +1,11 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
-#include "query-header.h"
 
 class QTcpSocket;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QUrl;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -21,16 +22,6 @@ public:
     MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
-private:
-
-    void create_get_header();
-
-    void create_post_header();
-
-    void send_query();
-
-    void receive_response();
-
 private slots:
     void on_connect_clicked();
 
@@ -38,11 +29,12 @@ private slots:
 
     void on_POST_clicked();
 
+    void receive_response(QNetworkReply* reply);
+
+    void on_url_returnPressed();
+
 private:
     Ui::MainWindow* ui;
-    QTcpSocket*     socket_;
-    QString query_;
-    QString content_;
-    QueryHeader header_;
+    QUrl* url_;
+    QNetworkAccessManager* manager_;
 };
-#endif // MAINWINDOW_H

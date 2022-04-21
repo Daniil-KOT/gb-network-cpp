@@ -20,7 +20,6 @@ set(${PROJECT_NAME}_SRC
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
-        query-header.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
