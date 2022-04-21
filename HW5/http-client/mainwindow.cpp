@@ -1,13 +1,14 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 
-#include <QTcpSocket>
 #include <QNetworkAccessManager>
-#include <QNetworkRequest>
 #include <QNetworkReply>
-#include <QUrl>
+#include <QNetworkRequest>
 #include <QRegularExpression>
+#include <QTcpSocket>
+#include <QUrl>
 #include <sstream>
+
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -15,8 +16,11 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ui->setupUi(this);
     manager_ = new QNetworkAccessManager();
-    connect(manager_, &QNetworkAccessManager::finished, this, &MainWindow::receive_response);
-    //socket_ = new QTcpSocket();
+    connect(manager_,
+            &QNetworkAccessManager::finished,
+            this,
+            &MainWindow::receive_response);
+    // socket_ = new QTcpSocket();
 }
 
 MainWindow::~MainWindow()
@@ -61,4 +65,3 @@ void MainWindow::on_url_returnPressed()
 {
     url_ = new QUrl("http://" + ui->url->text());
 }
-

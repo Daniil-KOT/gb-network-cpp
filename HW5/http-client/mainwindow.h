@@ -34,7 +34,7 @@ private slots:
     void on_url_returnPressed();
 
 private:
-    Ui::MainWindow* ui;
-    QUrl* url_;
+    Ui::MainWindow*        ui;
+    QUrl*                  url_;
     QNetworkAccessManager* manager_;
 };
