@@ -4,7 +4,7 @@ project(openssl-client C CXX)
 
 find_package(OpenSSL REQUIRED)
 
-add_executable("${PROJECT_NAME}" "main.cpp")
+add_executable("${PROJECT_NAME}" openssl-client.cpp)
 target_link_libraries("${PROJECT_NAME}" pthread OpenSSL::SSL OpenSSL::Crypto)
 
 if(WIN32)

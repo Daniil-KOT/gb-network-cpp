@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include <socket_wrapper/socket_class.h>
 #include <socket_wrapper/socket_headers.h>
@@ -8,7 +9,6 @@
 
 extern "C"
 {
-#include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
@@ -66,13 +66,98 @@ void communicate(SSL* ssl, std::vector<char>& buffer)
                 continue;
             if (0 == errno)
                 break;
-            // std::cerr << errno << ": " <<
-            // sock_wrap.get_last_error_string() << std::endl;
+                
             break;
         }
 
         break;
     }
+}
+
+bool register_client(std::string data)
+{
+    std::ofstream out("client_data.txt", std::ios::app);
+
+    if (!out.is_open())
+    {
+        std::cerr << "Cannot open client data file!" << std::endl;
+        return false; 
+    }
+
+    out.write(data.c_str(), data.length());
+    out << std::endl;
+
+    out.close();
+    return true;
+}
+
+bool find_client_data(std::string data)
+{
+     std::ifstream client_data("client_data.txt");
+    
+    if (!client_data.is_open())
+    {
+        std::cerr << "Cannot open client data file!" << std::endl;
+        return false;
+    }
+
+    std::string data_read;
+
+    auto pass_pos = data.find(" ");
+    if (pass_pos != std::string::npos)
+    {
+        auto login = data.substr(0, pass_pos);
+        bool has_login = false;
+
+        while (std::getline(client_data, data_read))
+        {
+            if (data_read == data)
+            {
+                client_data.close();
+                return true;
+            }
+
+            if (data_read.find(login) != std::string::npos)
+                has_login = true;
+        }
+
+        if (!has_login)
+        {
+            client_data.close();
+            std::cout << "Adding new client: " << login << std::endl;
+            return register_client(data);
+        }
+    }
+
+    client_data.close();
+    return false;
+}
+
+bool authorize(SSL* ssl)
+{
+    const std::string token = "1eF093Plsx76AJIDjfzlI28931xllJ";
+    SSL_write(ssl, token.c_str(), token.length());
+
+    std::string data;
+    data.resize(MAX_BUFFER_SIZE);
+    auto recv_bytes = SSL_read(ssl, &data[0], data.size());
+
+    if (recv_bytes > 0)
+    {
+        if (find_client_data(data))
+        {
+            std::string accept = "Authorized";
+            SSL_write(ssl, accept.c_str(), accept.length());
+            return true;
+        }
+        else
+        {
+            std::string decline = "Wrong login or password";
+            SSL_write(ssl, decline.c_str(), decline.length());
+        }
+    }
+
+    return false;
 }
 
 socket_wrapper::Socket create_socket(int port)
@@ -127,7 +212,7 @@ SSL_CTX* create_context()
 
 void configure_context(SSL_CTX* ctx)
 {
-    if (SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) <= 0)
+    if (SSL_CTX_use_certificate_file(ctx, "server.pem", SSL_FILETYPE_PEM) <= 0)
     {
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
@@ -138,6 +223,13 @@ void configure_context(SSL_CTX* ctx)
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
+}
+
+void cleanup(SSL* ssl, SSL_CTX* ctx)
+{
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+    SSL_CTX_free(ctx);
 }
 
 int main(int argc, char* argv[])
@@ -167,6 +259,7 @@ int main(int argc, char* argv[])
     // new socket to accept
     socket_wrapper::Socket newsock = { 0 };
     SSL*                   ssl;
+    bool authorized = false;
 
     while (true)
     {
@@ -174,6 +267,8 @@ int main(int argc, char* argv[])
         newsock = accept(sock,
                          reinterpret_cast<sockaddr*>(&client_address),
                          &client_address_len);
+
+        authorized = false;
 
         if (!newsock)
         {
@@ -191,14 +286,17 @@ int main(int argc, char* argv[])
             }
             else
             {
+                while (!authorized)
+                {
+                    authorized = authorize(ssl);
+                }
+
                 communicate(ssl, buffer);
             }
         }
     }
 
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
-    SSL_CTX_free(ctx);
+    cleanup(ssl, ctx);
 
     return EXIT_SUCCESS;
 }
