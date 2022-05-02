@@ -1,0 +1,52 @@
+{
+  "openapi" : "3.0.0",
+  "info" : {
+    "description" : "This is a simple API for CPP server",
+    "version" : "1.0.0",
+    "title" : "Simple CPP server API"
+  },
+  "servers" : [ {
+    "description" : "SwaggerHub API Auto Mocking",
+    "url" : "https://virtserver.swaggerhub.com/study365/cpp-server/1.0.0"
+  } ],
+  "tags" : [ {
+    "name" : "control",
+    "description" : "server-control"
+  }, {
+    "name" : "info",
+    "description" : "pages with plain text"
+  } ],
+  "paths" : {
+    "/hi" : {
+      "get" : {
+        "tags" : [ "info" ],
+        "summary" : "prints Hello World!",
+        "operationId" : "searchInventory",
+        "responses" : {
+          "200" : {
+            "description" : "print greeting",
+            "content" : {
+              "text/plain; charset=utf-8" : {
+                "schema" : {
+                  "type" : "string",
+                  "example" : "Hello World!"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/server/control/exit" : {
+      "post" : {
+        "tags" : [ "control" ],
+        "summary" : "stops the server",
+        "responses" : {
+          "204" : {
+            "description" : "exit"
+          }
+        }
+      }
+    }
+  }
+}
