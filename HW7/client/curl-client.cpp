@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
         std::cout << "Usage: " << argv[0] << " <host:port>" << std::endl;
     }
 
-    CURL* curl;
+    CURL*    curl;
     CURLcode res;
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
         host += page;
 
         curl_easy_setopt(curl, CURLOPT_URL, host.c_str());
-            
+
         // needed because we're using self-signed certs for a server
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
@@ -46,11 +46,13 @@ int main(int argc, char* argv[])
         res = curl_easy_perform(curl);
 
         if (res != CURLE_OK)
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            fprintf(stderr,
+                    "curl_easy_perform() failed: %s\n",
+                    curl_easy_strerror(res));
 
         std::cout << std::endl;
 
         curl_easy_cleanup(curl);
     }
     curl_global_cleanup();
-}   
+}
