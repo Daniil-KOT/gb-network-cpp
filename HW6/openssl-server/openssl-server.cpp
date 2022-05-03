@@ -1,7 +1,8 @@
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <fstream>
+
 
 #include <socket_wrapper/socket_class.h>
 #include <socket_wrapper/socket_headers.h>
@@ -66,7 +67,7 @@ void communicate(SSL* ssl, std::vector<char>& buffer)
                 continue;
             if (0 == errno)
                 break;
-                
+
             break;
         }
 
@@ -81,7 +82,7 @@ bool register_client(std::string data)
     if (!out.is_open())
     {
         std::cerr << "Cannot open client data file!" << std::endl;
-        return false; 
+        return false;
     }
 
     out.write(data.c_str(), data.length());
@@ -93,8 +94,8 @@ bool register_client(std::string data)
 
 bool find_client_data(std::string data)
 {
-     std::ifstream client_data("client_data.txt");
-    
+    std::ifstream client_data("client_data.txt");
+
     if (!client_data.is_open())
     {
         std::cerr << "Cannot open client data file!" << std::endl;
@@ -106,7 +107,7 @@ bool find_client_data(std::string data)
     auto pass_pos = data.find(" ");
     if (pass_pos != std::string::npos)
     {
-        auto login = data.substr(0, pass_pos);
+        auto login     = data.substr(0, pass_pos);
         bool has_login = false;
 
         while (std::getline(client_data, data_read))
@@ -259,7 +260,7 @@ int main(int argc, char* argv[])
     // new socket to accept
     socket_wrapper::Socket newsock = { 0 };
     SSL*                   ssl;
-    bool authorized = false;
+    bool                   authorized = false;
 
     while (true)
     {

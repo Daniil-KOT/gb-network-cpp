@@ -1,19 +1,21 @@
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <sstream>
 #include <cstdlib>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
 #include <tuple>
 #include <vector>
-#include <limits>
+
 
 extern "C"
 {
-#include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#include <openssl/x509.h>
 #include <openssl/evp.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+
 }
 
 const int MAX_BUFFER_SIZE = 4096;
@@ -66,7 +68,7 @@ bool calculate_hash(std::string& passwd)
         ERR_print_errors_fp(stderr);
         EVP_MD_CTX_free(evp_ctx);
         return false;
-    } 
+    }
 
     if (!EVP_DigestInit_ex(evp_ctx, EVP_sha512(), nullptr))
     {
@@ -85,7 +87,7 @@ bool calculate_hash(std::string& passwd)
     }
 
     unsigned char hash[EVP_MAX_MD_SIZE];
-    unsigned int hash_length = 0;
+    unsigned int  hash_length = 0;
 
     if (!EVP_DigestFinal_ex(evp_ctx, hash, &hash_length))
     {
@@ -144,14 +146,14 @@ bool authorize(BIO* bio, std::string& login, std::string& passwd)
         if (response.find("Authorized") != std::string::npos)
             return true;
     }
-    
+
     return false;
 }
 
 std::pair<BIO*, SSL*> secure_connect(const std::string hostname, SSL_CTX* ctx)
 {
     std::string host, port;
-    auto port_start = hostname.find(':');
+    auto        port_start = hostname.find(':');
 
     if (port_start == std::string::npos)
     {
@@ -179,7 +181,7 @@ std::pair<BIO*, SSL*> secure_connect(const std::string hostname, SSL_CTX* ctx)
 
     SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
 
-    std::cout << "Connecting to:\t" << host << std::endl; 
+    std::cout << "Connecting to:\t" << host << std::endl;
 
     if (SSL_set_tlsext_host_name(ssl, host.c_str()) != 1)
     {
@@ -192,11 +194,13 @@ std::pair<BIO*, SSL*> secure_connect(const std::string hostname, SSL_CTX* ctx)
     BIO_set_conn_hostname(bio, host.c_str());
     BIO_set_conn_port(bio, port.c_str());
 
-    if (!SSL_CTX_load_verify_locations(ctx, "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/certs/"))
+    if (!SSL_CTX_load_verify_locations(
+            ctx, "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/certs/"))
     {
         std::cerr << "Unable to load certificate!" << std::endl;
         ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);    }
+        exit(EXIT_FAILURE);
+    }
 
     if (BIO_do_connect(bio) <= 0)
     {
@@ -212,26 +216,21 @@ std::pair<BIO*, SSL*> secure_connect(const std::string hostname, SSL_CTX* ctx)
         // Verification error handling by code example.
         case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
         case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
-            std::cerr
-                << "##### Certificate verification error: self-signed ("
-                << X509_verify_cert_error_string(verify_flag) << ", "
-                << verify_flag << ") but continuing..."
-                << std::endl;
-        break;
+            std::cerr << "##### Certificate verification error: self-signed ("
+                      << X509_verify_cert_error_string(verify_flag) << ", "
+                      << verify_flag << ") but continuing..." << std::endl;
+            break;
         case X509_V_OK:
-            std::cout
-                << "##### Certificate verification passed..."
-                << std::endl;
-        break;
+            std::cout << "##### Certificate verification passed..."
+                      << std::endl;
+            break;
         default:
-            std::cerr
-                << "##### Certificate verification error ("
-                << X509_verify_cert_error_string(verify_flag) << ", "
-                << verify_flag << ") but continuing..."
-                << std::endl;
+            std::cerr << "##### Certificate verification error ("
+                      << X509_verify_cert_error_string(verify_flag) << ", "
+                      << verify_flag << ") but continuing..." << std::endl;
     }
 
-    return {bio, ssl};
+    return { bio, ssl };
 }
 
 std::string create_get_request(const std::string& host, const std::string& page)
@@ -243,16 +242,18 @@ std::string create_get_request(const std::string& host, const std::string& page)
        << "Accept-Language: en-en\r\n"
        << "Accept-Encoding: gzip, deflate\r\n"
        << "Connection: Keep-Alive\r\n\r\n";
-    
+
     return ss.str();
 }
 
-bool send_request(BIO* bio, const std::string hostname, const std::string &request)
+bool send_request(BIO*               bio,
+                  const std::string  hostname,
+                  const std::string& request)
 {
     if (request.find("get") != std::string::npos)
     {
-        std::string page = "";
-        auto page_pos = request.find('/');
+        std::string page     = "";
+        auto        page_pos = request.find('/');
 
         if (page_pos != std::string::npos)
         {
@@ -260,7 +261,9 @@ bool send_request(BIO* bio, const std::string hostname, const std::string &reque
         }
 
         auto port_start = hostname.find(':');
-        auto host = (port_start == std::string::npos) ? hostname : hostname.substr(0, port_start);
+        auto host       = (port_start == std::string::npos)
+                              ? hostname
+                              : hostname.substr(0, port_start);
 
         BIO_puts(bio, create_get_request(host, page).c_str());
 
@@ -270,27 +273,29 @@ bool send_request(BIO* bio, const std::string hostname, const std::string &reque
     return false;
 }
 
-void recv_answer(BIO* bio, std::vector<char> &buffer)
+void recv_answer(BIO* bio, std::vector<char>& buffer)
 {
     size_t recv_bytes;
     do
     {
         BIO_read_ex(bio, buffer.data(), buffer.size() - 1, &recv_bytes);
 
-        std::cout
-            << recv_bytes
-            << " was received..."
-            << std::endl;
+        std::cout << recv_bytes << " was received..." << std::endl;
 
         if (recv_bytes > 0)
         {
             buffer[recv_bytes] = '\0';
-            std::cout << "------------\n" << std::string(buffer.begin(), std::next(buffer.begin(), recv_bytes)) << std::endl;
+            std::cout << "------------\n"
+                      << std::string(buffer.begin(),
+                                     std::next(buffer.begin(), recv_bytes))
+                      << std::endl;
         }
         else if (-1 == recv_bytes)
         {
-            if (EINTR == errno) continue;
-            if (0 == errno) break;
+            if (EINTR == errno)
+                continue;
+            if (0 == errno)
+                break;
             break;
         }
 
@@ -307,8 +312,8 @@ int main(int argc, char* argv[])
 
     std::string host = argv[1];
 
-    SSL_CTX* ctx = create_context();
-    auto bio_ssl = secure_connect(host, ctx);
+    SSL_CTX* ctx     = create_context();
+    auto     bio_ssl = secure_connect(host, ctx);
 
     std::vector<char> buffer;
     buffer.resize(MAX_BUFFER_SIZE);
@@ -323,10 +328,12 @@ int main(int argc, char* argv[])
         while (!authorized)
         {
             std::cout << "Login: " << std::flush;
-            if (!std::getline(std::cin, login)) break;
+            if (!std::getline(std::cin, login))
+                break;
 
             std::cout << "Password: " << std::flush;
-            if (!std::getline(std::cin, passwd)) break;
+            if (!std::getline(std::cin, passwd))
+                break;
 
             authorized = authorize(bio_ssl.first, login, passwd);
         }
@@ -335,19 +342,17 @@ int main(int argc, char* argv[])
     while (true)
     {
         std::cout << "> " << std::flush;
-        if (!std::getline(std::cin, request)) break;
+        if (!std::getline(std::cin, request))
+            break;
 
         if (!send_request(bio_ssl.first, argv[1], request))
         {
             std::cout << "Wrong request!\n\n"
-                      << "Example: get /homepage"
-                      << std::endl;
+                      << "Example: get /homepage" << std::endl;
             continue;
         }
 
-        std::cout
-            << "Request was sent, reading response..."
-            << std::endl;
+        std::cout << "Request was sent, reading response..." << std::endl;
 
         recv_answer(bio_ssl.first, buffer);
 
