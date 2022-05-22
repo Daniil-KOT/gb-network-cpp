@@ -25,6 +25,6 @@ private:
     std::string name_;
     uint16_t uid_;
     boost::asio::ip::udp::socket socket_;
-    boost::asio::ip::udp::endpoint remote_endpoint_;
+    boost::asio::ip::udp::endpoint remote_endpoint_; 
     boost::asio::ip::udp::endpoint multicast_endpoint_;
 };

@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
     });
 
     boost::asio::post(thread_pool, [&]
-    {
+    { 
         peer.do_send();
         io_context.run();
     });

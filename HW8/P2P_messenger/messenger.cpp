@@ -48,7 +48,7 @@ void Peer::do_receive()
                                     }
                             });
 }
-
+ 
 void Peer::do_send()
 {
     std::string name = name_;
